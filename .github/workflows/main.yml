@@ -1,9 +1,6 @@
 name: Build Android APK
-
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
     branches: [ "main", "master" ]
 
 jobs:
@@ -13,28 +10,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Java 17 Kurulumu (Yeni Android SDK'lar için şart)
+      # 1. Java 17 Kurulumu
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 2. Python 3.9 Kurulumu (Kivy için en kararlı sürüm)
-      - name: Set up Python 3.9
+      # 2. Python 3.10 Kurulumu (En kararlı sürüm)
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      # 3. Gereksiz Dosyaları Temizle (Disk alanı kazanmak için)
+      # 3. Disk Temizliği (Yer açmak için)
       - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
-      # 4. Gerekli Kütüphanelerin Yüklenmesi
+      # 4. Gerekli Kütüphaneler
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -44,20 +40,20 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev cmake \
             libltdl-dev
 
-      # 5. Buildozer ve Cython (Sürüm Sabitleme - KRİTİK NOKTA)
-      # Cython 3.0 bazen hata veriyor, o yüzden 0.29.36 kullanıyoruz.
-      - name: Install Buildozer & Cython
+      # 5. Buildozer Kurulumu
+      - name: Install Buildozer
         run: |
           pip install --upgrade pip
           pip install buildozer
           pip install "cython==0.29.36"
 
-      # 6. APK'yı Derle (Hata ayıklama modunda)
+      # 6. APK Derleme (LOGLU VE GÜVENLİ)
+      # -v parametresi ekledik, hata olursa neden olduğunu yazar.
       - name: Build with Buildozer
         run: |
-          yes | buildozer android debug
+          yes | buildozer -v android debug
 
-      # 7. APK'yı Yükle (Artifacts kısmında görünecek)
+      # 7. APK Yükleme
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
