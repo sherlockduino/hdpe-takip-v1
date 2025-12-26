@@ -484,6 +484,7 @@ class HistoryScreen(Screen):
     def on_enter(self):
         filtre_modu = self.ids.filtre_secici.text
         self.filtrele(filtre_modu)
+
     def filtrele(self, mod):
         tum_kayitlar = verileri_getir()
         filtrelenmis = []
@@ -493,6 +494,7 @@ class HistoryScreen(Screen):
         elif mod == 'Bugün': filtrelenmis = [k for k in tum_kayitlar if k[1].startswith(bugun)]
         elif mod == 'Bu Ay': filtrelenmis = [k for k in tum_kayitlar if bu_ay in k[1]]
         self.listeyi_ciz(filtrelenmis)
+
     def listeyi_ciz(self, kayitlar):
         grid = self.ids.history_list
         grid.clear_widgets()
@@ -519,20 +521,21 @@ class HistoryScreen(Screen):
             satir.add_widget(buton_kutusu)
             grid.add_widget(satir)
             grid.add_widget(Widget(size_hint_y=None, height=dp(5)))
+
     def popup_ac(self, kayit_data):
         current_filter = self.ids.filtre_secici.text
         pop = GuncellemePopup(kayit_data, lambda: self.filtrele(current_filter))
         pop.open()
+
     def silme_islemi(self, kayit_id):
         veri_sil(kayit_id)
         current_filter = self.ids.filtre_secici.text
         self.filtrele(current_filter)
 
-    # --- HATA YAKALAMA VE RAPORLAMA ---
+    # --- YENİ VE SAĞLAM RAPORLAMA KODU ---
     def rapor_al(self):
         dosya_yolu, hata = excele_aktar()
         
-        # HATA VARSA EKRANA BAS
         if hata:
             self.hata_goster(f"HATA:\n{hata}")
             return
@@ -540,11 +543,10 @@ class HistoryScreen(Screen):
         if dosya_yolu:
             if platform == 'android':
                 try:
-                    # DÜZELTME: Plyer'ı sadece butona basınca çağırıyoruz
-                    from plyer import share 
-                    share.share(file_attachment=dosya_yolu)
+                    self.android_paylas(dosya_yolu)
                 except Exception as e:
-                    self.hata_goster(f"Paylaşım Hatası: {str(e)}")
+                    import traceback
+                    self.hata_goster(f"Java Paylaşım Hatası:\n{str(e)}\n{traceback.format_exc()}")
             else:
                 self.hata_goster(f"Dosya Oluşturuldu:\n{dosya_yolu}")
                 try: os.startfile(os.path.dirname(dosya_yolu))
@@ -552,10 +554,50 @@ class HistoryScreen(Screen):
         else:
             self.hata_goster("Dosya oluşturulamadı.")
 
+    def android_paylas(self, dosya_yolu):
+        # Plyer yerine doğrudan Android Java sınıflarını kullanıyoruz (Garanti Yöntem)
+        from jnius import autoclass, cast
+        
+        # Gerekli Java Sınıfları
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        Intent = autoclass('android.content.Intent')
+        File = autoclass('java.io.File')
+        Uri = autoclass('android.net.Uri')
+        StrictMode = autoclass('android.os.StrictMode')
+        
+        # Android 7.0+ için dosya güvenlik ihlali (FileUriExposedException) önleme yaması
+        try:
+            builder = StrictMode.VmPolicy.Builder()
+            StrictMode.setVmPolicy(builder.build())
+        except:
+            pass 
+
+        # Paylaşım Intent'i oluştur
+        intent = Intent()
+        intent.setAction(Intent.ACTION_SEND)
+        
+        # Dosyayı tanımla
+        dosya = File(dosya_yolu)
+        uri = Uri.fromFile(dosya)
+        
+        intent.putExtra(Intent.EXTRA_STREAM, uri)
+        intent.setType("text/csv") # Dosya türü
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        
+        # Paylaşım menüsünü aç
+        baslik = cast('java.lang.CharSequence', String("Raporu Paylaş"))
+        chooser = Intent.createChooser(intent, baslik)
+        currentActivity = cast('android.app.Activity', PythonActivity.mActivity)
+        currentActivity.startActivity(chooser)
+
     def hata_goster(self, mesaj):
         content = TextInput(text=mesaj, readonly=True)
         popup = Popup(title='Bilgi / Hata', content=content, size_hint=(0.9, 0.6))
         popup.open()
+        
+# Java String dönüşümü için minik bir yardımcı (Sınıfın dışına ekle veya importların altına)
+from jnius import autoclass
+String = autoclass('java.lang.String')
 
 class BoruApp(App):
     def build(self):
@@ -593,3 +635,4 @@ if __name__ == '__main__':
             pass
 
     BoruApp().run()
+
