@@ -1,5 +1,10 @@
-name: APK Yapici (Cython Fix)
-on: [push]
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
   build:
@@ -8,39 +13,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Java 17 Kurulumu
+      # 1. Java 17 Kurulumu (Yeni Android SDK'lar için şart)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 2. Python Kurulumu
-      - name: Set up Python
+      # 2. Python 3.9 Kurulumu (Kivy için en kararlı sürüm)
+      - name: Set up Python 3.9
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
-      # 3. Gerekli Kütüphaneler (VE CYTHON SABİTLEME!)
+      # 3. Gereksiz Dosyaları Temizle (Disk alanı kazanmak için)
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      # 4. Gerekli Kütüphanelerin Yüklenmesi
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libffi-dev libssl-dev python3-dev build-essential \
             git zip unzip autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev cmake
-          
-          pip install --upgrade pip
-          
-          # İŞTE BURASI ÇOK ÖNEMLİ: Sürümü kilitledik!
-          pip install buildozer "cython==0.29.36" virtualenv
+            zlib1g-dev libncurses5-dev libncursesw5-dev cmake \
+            libltdl-dev
 
-      # 4. APK'yı Üret
+      # 5. Buildozer ve Cython (Sürüm Sabitleme - KRİTİK NOKTA)
+      # Cython 3.0 bazen hata veriyor, o yüzden 0.29.36 kullanıyoruz.
+      - name: Install Buildozer & Cython
+        run: |
+          pip install --upgrade pip
+          pip install buildozer
+          pip install "cython==0.29.36"
+
+      # 6. APK'yı Derle (Hata ayıklama modunda)
       - name: Build with Buildozer
         run: |
           yes | buildozer android debug
 
-      # 5. Sonucu Yükle
+      # 7. APK'yı Yükle (Artifacts kısmında görünecek)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
