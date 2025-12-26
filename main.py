@@ -3,6 +3,7 @@ import sqlite3
 import csv
 import traceback
 from datetime import datetime
+from jnius import autoclass, cast
 
 # --- KIVY AYARLARI ---
 from kivy.config import Config
@@ -554,18 +555,42 @@ class HistoryScreen(Screen):
         else:
             self.hata_goster("Dosya oluşturulamadı.")
 
-    def android_paylas(self, dosya_yolu):
-        # Plyer yerine doğrudan Android Java sınıflarını kullanıyoruz (Garanti Yöntem)
-        from jnius import autoclass, cast
-        
-        # Gerekli Java Sınıfları
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        Intent = autoclass('android.content.Intent')
-        File = autoclass('java.io.File')
-        Uri = autoclass('android.net.Uri')
-        StrictMode = autoclass('android.os.StrictMode')
-        
-        # Android 7.0+ için dosya güvenlik ihlali (FileUriExposedException) önleme yaması
+  def android_paylas(self, dosya_yolu):
+    PythonActivity = autoclass('org.kivy.android.PythonActivity')
+    Intent = autoclass('android.content.Intent')
+    File = autoclass('java.io.File')
+    FileProvider = autoclass('androidx.core.content.FileProvider') # Veya android.support.v4.content.FileProvider (buildozer.spec'ine bağlı)
+    
+    # 1. Dosya nesnesini oluştur
+    dosya = File(dosya_yolu)
+    
+    # 2. Context'i al
+    context = PythonActivity.mActivity.getApplicationContext()
+    
+    # 3. Dosya için URI oluştur (Burada hata yok, burası normal)
+    uri = FileProvider.getUriForFile(
+        context, 
+        context.getPackageName() + ".fileprovider", 
+        dosya
+    )
+    
+    # 4. Intent Oluştur
+    intent = Intent()
+    intent.setAction(Intent.ACTION_SEND)
+    
+    # --- KRİTİK DÜZELTME BURADA ---
+    # Pyjnius'a bu Uri'nin bir Parcelable olduğunu söylüyoruz.
+    # Böylece String bekleyen putExtra yerine, Parcelable bekleyen putExtra çalışıyor.
+    parcelable_uri = cast('android.os.Parcelable', uri)
+    
+    intent.putExtra(Intent.EXTRA_STREAM, parcelable_uri)
+    # ------------------------------
+    
+    intent.setType("application/pdf") # Dosya türüne göre değiştir (image/png vs.)
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    
+    chooser = Intent.createChooser(intent, "Dosyayı Paylaş")
+    PythonActivity.mActivity.startActivity(chooser)
         try:
             builder = StrictMode.VmPolicy.Builder()
             StrictMode.setVmPolicy(builder.build())
@@ -635,4 +660,5 @@ if __name__ == '__main__':
             pass
 
     BoruApp().run()
+
 
