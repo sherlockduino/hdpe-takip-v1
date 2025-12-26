@@ -25,10 +25,6 @@ from kivy.uix.widget import Widget
 from kivy.uix.popup import Popup
 from kivy.metrics import dp
 
-# Android Paylaşım Kütüphanesi
-if platform == 'android':
-    from plyer import share
-
 Window.clearcolor = (0.95, 0.95, 0.95, 1)
 
 # --- VERİ TABANI YOLU AYARLAMA (KRİTİK DÜZELTME) ---
@@ -536,7 +532,7 @@ class HistoryScreen(Screen):
     def rapor_al(self):
         dosya_yolu, hata = excele_aktar()
         
-        # HATA VARSA EKRANA BAS, UYGULAMAYI KAPATMA
+        # HATA VARSA EKRANA BAS
         if hata:
             self.hata_goster(f"HATA:\n{hata}")
             return
@@ -544,6 +540,8 @@ class HistoryScreen(Screen):
         if dosya_yolu:
             if platform == 'android':
                 try:
+                    # DÜZELTME: Plyer'ı sadece butona basınca çağırıyoruz
+                    from plyer import share 
                     share.share(file_attachment=dosya_yolu)
                 except Exception as e:
                     self.hata_goster(f"Paylaşım Hatası: {str(e)}")
@@ -564,5 +562,34 @@ class BoruApp(App):
         veritabani_kur()
         return Builder.load_string(kv_design)
 
+# --- EN ALT KISIM (BUNU KOPYALA YAPIŞTIR) ---
 if __name__ == '__main__':
+    try:
+        BoruApp().run()
+    except Exception:
+        # Hata olursa, hatayı bir dosyaya yaz (Çökme sebebini anlamak için)
+        import traceback
+        hata_metni = traceback.format_exc()
+        
+        try:
+            # Android veya PC için güvenli yol
+            from kivy.app import App
+            import os
+            
+            # Uygulama henüz başlatılamadıysa App.get_running_app() None dönebilir
+            # Bu yüzden manuel bir yol deniyoruz
+            if platform == 'android':
+                from jnius import autoclass
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                activity = PythonActivity.mActivity
+                dosya_yolu = os.path.join(activity.getExternalFilesDir(None).getAbsolutePath(), 'hata_logu.txt')
+            else:
+                dosya_yolu = "hata_logu.txt"
+                
+            with open(dosya_yolu, "w") as f:
+                f.write(hata_metni)
+                
+        except:
+            pass
+
     BoruApp().run()
