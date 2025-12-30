@@ -1,0 +1,30 @@
+name: Android APK Yapıcı
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodu Çek (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Buildozer ile APK Derle
+       
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      - name: APK'yı Yükle (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinansTakip-APK
+          path: bin/*.apk
