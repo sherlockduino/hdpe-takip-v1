@@ -534,26 +534,22 @@ class HistoryScreen(Screen):
         self.filtrele(current_filter)
 
     # --- YENİ VE SAĞLAM RAPORLAMA KODU ---
-    def rapor_al(self):
-        dosya_yolu, hata = excele_aktar()
-        
-        if hata:
-            self.hata_goster(f"HATA:\n{hata}")
-            return
-
+        def rapor_al(self):
+        dosya_yolu = excele_aktar()
         if dosya_yolu:
             if platform == 'android':
-                try:
-                    self.android_paylas(dosya_yolu)
-                except Exception as e:
-                    import traceback
-                    self.hata_goster(f"Java Paylaşım Hatası:\n{str(e)}\n{traceback.format_exc()}")
+                # Android'de direkt paylaşım çökme yaptığı için güvenli indirme yöntemi:
+                mesaj = "✅ BAŞARILI!\n\nExcel raporunuz telefonun:\nİNDİRİLENLER (Download)\nklasörüne kaydedildi.\n\n'Dosyalarım' uygulamasından bulup WhatsApp ile gönderebilirsiniz."
+                self.hata_goster(mesaj)
             else:
-                self.hata_goster(f"Dosya Oluşturuldu:\n{dosya_yolu}")
-                try: os.startfile(os.path.dirname(dosya_yolu))
-                except: pass
+                self.hata_goster(f"Excel Oluşturuldu!\n{dosya_yolu}")
+                try:
+                   os.startfile(os.path.dirname(dosya_yolu))
+                except:
+                   pass
         else:
-            self.hata_goster("Dosya oluşturulamadı.")
+            self.hata_goster("Hata oluştu, dosya oluşturulamadı.")
+            
 
   def android_paylas(self, dosya_yolu):
     PythonActivity = autoclass('org.kivy.android.PythonActivity')
